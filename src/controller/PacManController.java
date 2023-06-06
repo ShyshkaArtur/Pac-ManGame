@@ -19,100 +19,132 @@ import java.util.List;
 
 public class PacManController {
 
-    private static double rectangleSpeed = 1;// швидкість пакмена
+    private static PacMan pacMan = Map.pacMan;
+    private static Scene scene = Main.scene;
+    private static int[][] map = Map.map;
+    private static int sizeBlock = Map.CELL_SIZE;
+
+    private static int direction = 1;
+    private static int nextDirection = 1;
     private static int score = 0; // очки
 
-    private static PacMan pacMan = Main.pacMan;
-    private static Scene scene = Main.scene;
-
     public static void move() {
+        timeline.setCycleCount(Animation.INDEFINITE);
 
-        // Створити Timeline
-
-        Timeline timelineUp = new Timeline(new KeyFrame(Duration.millis(10), event -> {
-            pacMan.setY(pacMan.getY() - rectangleSpeed);
-            if (checkCollision()) {
-                pacMan.setY(pacMan.getY() + rectangleSpeed);
-            }
-        }));
-        timelineUp.setCycleCount(Animation.INDEFINITE);
-
-        Timeline timelineDown = new Timeline(new KeyFrame(Duration.millis(10), event -> {
-            pacMan.setY(pacMan.getY() + rectangleSpeed);
-            if (checkCollision()) {
-                pacMan.setY(pacMan.getY() - rectangleSpeed);
-            }
-        }));
-        timelineDown.setCycleCount(Animation.INDEFINITE);
-
-        Timeline timelineRight = new Timeline(new KeyFrame(Duration.millis(10), event -> {
-            pacMan.setX(pacMan.getX() + rectangleSpeed);
-            if(pacMan.getX() > 582) {
-                pacMan.setX(4);
-            }
-            if (checkCollision()) {
-                pacMan.setX(pacMan.getX() - rectangleSpeed);
-            }
-        }));
-        timelineRight.setCycleCount(Animation.INDEFINITE);
-
-        Timeline timelineLeft = new Timeline(new KeyFrame(Duration.millis(10), event -> {
-            pacMan.setX(pacMan.getX() - rectangleSpeed);
-            if(pacMan.getX() < (-20)) {
-                pacMan.setX(pacMan.getX() + Map.WIDTH);
-            }
-            if (checkCollision()) {
-                pacMan.setX(pacMan.getX() + rectangleSpeed);
-            }
-        }));
-        timelineLeft.setCycleCount(Animation.INDEFINITE);
-
-        // Викликати метод play() на Timeline, коли клавіша була натиснута
         scene.setOnKeyPressed(event -> {
             // Переміщуємо пакмена у залежності від клавіші, що була натиснута
             KeyCode keyCode = event.getCode();
             switch (keyCode) {
 
                 case UP:
-                    timelineLeft.stop();
-                    timelineRight.stop();
-                    timelineDown.stop();
-                    timelineUp.play();
+                    nextDirection = 1;
+                    timeline.play();
                     break;
 
                 case DOWN:
-                    timelineLeft.stop();
-                    timelineRight.stop();
-                    timelineUp.stop();
-                    timelineDown.play();
+                    nextDirection = 2;
+                    timeline.play();
                     break;
 
                 case LEFT:
-                    timelineUp.stop();
-                    timelineDown.stop();
-                    timelineRight.stop();
-                    timelineLeft.play();
+                    nextDirection = 3;
+                    timeline.play();
                     break;
 
                 case RIGHT:
-                    timelineUp.stop();
-                    timelineDown.stop();
-                    timelineLeft.stop();
-                    timelineRight.play();
+                    nextDirection = 4;
+                    timeline.play();
                     break;
 
                 case SPACE:
-                    timelineUp.stop();
-                    timelineDown.stop();
-                    timelineLeft.stop();
-                    timelineRight.stop();
+                    timeline.stop();
                     break;
             }
         });
     }
 
+    private static Timeline timeline = new Timeline(new KeyFrame(Duration.millis(200), event -> {
 
-    private static boolean checkCollision() {
+        if (direction == 1) { moveProcess(1); }
+
+        else if (direction == 2) { moveProcess(2); }
+
+        else if (direction == 3) { moveProcess(3); }
+
+        else if (direction == 4) { moveProcess(4); }
+
+    }));
+
+    private static void moveProcess(int dir) {
+
+        eatDots();
+        changeDirectionIfPossible();
+        moveForwards();
+
+        if (checkCollisions()) {
+            direction = dir;
+            moveBackwards();
+        }
+    }
+
+    private static void moveForwards() {
+
+        if (direction == 1) { pacMan.setY(pacMan.getY() - sizeBlock); }
+
+        else if (direction == 2) { pacMan.setY(pacMan.getY() + sizeBlock); }
+
+        else if (direction == 3) {
+            pacMan.setX(pacMan.getX() - sizeBlock);
+
+            if (pacMan.getX() < -20) { pacMan.setX(pacMan.getX() + Map.WIDTH); }
+
+        } else if (direction == 4) {
+            pacMan.setX(pacMan.getX() + sizeBlock);
+
+            if (pacMan.getX() > 582) { pacMan.setX(2); }
+        }
+    }
+
+    private static void moveBackwards() {
+
+        if (direction == 1) { pacMan.setY(pacMan.getY() + sizeBlock); }
+
+        else if (direction == 2) { pacMan.setY(pacMan.getY() - sizeBlock); }
+
+        else if (direction == 3) { pacMan.setX(pacMan.getX() + sizeBlock); }
+
+        else if (direction == 4) { pacMan.setX(pacMan.getX() - sizeBlock); }
+    }
+
+    private static void changeDirectionIfPossible() {
+
+        if (direction == nextDirection) { return; }
+
+        int tempDirection = direction;
+        direction = nextDirection;
+        moveForwards();
+
+        if (checkCollisions()) {
+            moveBackwards();
+            direction = tempDirection;
+        } else {
+            moveBackwards();
+        }
+    }
+
+    private static boolean checkCollisions() {
+
+        boolean isCollided = false;
+
+        if (map[(int) (pacMan.getY() / sizeBlock)][(int) (pacMan.getX() / sizeBlock)] == 1) {
+            isCollided = true;
+        }
+
+        return isCollided;
+    }
+
+    private static void eatDots() {
+
         ObservableList<Node> nodes = Main.scene.getRoot().getChildrenUnmodifiable();
         List<Node> dots = new ArrayList<>();
 
@@ -127,19 +159,10 @@ public class PacManController {
         for (Node node : dots) {
             if (pacMan.getBoundsInParent().intersects(node.getBoundsInParent())) {
                 // Якщо перетинання відбувається, видалити квадрат з колекції та зі сцени
-                score += 2;
                 Main.root.getChildren().remove(node);
+                score += 5;
                 Main.text.setText("Score:  " + score);
             }
         }
-
-        // Перевірити перетинання з іншими об'єктами
-        for (Node node : nodes) {
-            if (node != pacMan && node.getBoundsInParent().intersects(pacMan.getBoundsInParent())) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }
